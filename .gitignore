@@ -1,3 +1,6 @@
+# Pycharm things
+.idea/
+
 # Virtual environment
 /pytdenv
 /linuxpytdenv
