@@ -1,4 +1,4 @@
-# Pytdownloader
+# Pytdownloader (In progress 🤨)
 A simple GUI for download videos and audios.    
 **Made for remembering POO, tkinter, composables but with classes and testing pytube.*
 
