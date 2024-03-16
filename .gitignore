@@ -1,2 +1,13 @@
 # Virtual environment
 /pytdenv
+/linuxpytdenv
+
+# Media files downloaded on tests
+**/*.mp4
+**/*.webm
+# Script to easily delete media downloaded
+rmd.sh
+
+# Folder with examples
+/examples
+/assets/example_theme.json
