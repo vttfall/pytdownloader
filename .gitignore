@@ -14,3 +14,7 @@ rmd.sh
 # Folder with examples
 /examples
 /assets/example_theme.json
+
+# cache files or folders
+/pytd/__pycache__/
+/__pycache__/
