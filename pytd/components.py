@@ -89,6 +89,22 @@ class PytMediaFrame(ctk.CTkFrame):
         self.vid_duration_label.grid(padx=10, sticky=ctk.W)
 
 
+class PytTaskProgressFrame(ctk.CTkFrame):
+    def __init__(self, *args, **kwargs):
+        ctk.CTkFrame.__init__(self, *args, **kwargs)
+
+        self.progress_label = ctk.CTkLabel(master=self)
+        self.progress_bar = ctk.CTkProgressBar(master=self, orientation="horizontal", height=16)
+        self.progress_percent = ctk.CTkLabel(master=self)
+
+    def show(self):
+        self.grid(row=2, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
+        self.progress_label.pack()
+        self.progress_bar.pack(fill=ctk.X, padx=10)
+        self.progress_percent.pack()
+        self.progress_bar.set(0)
+
+
 class PytProgressiveFrame(PytMediaFrame):
     def __init__(self, *args, **kwargs):
         PytMediaFrame.__init__(self, *args, **kwargs)
@@ -100,16 +116,7 @@ class PytProgressiveFrame(PytMediaFrame):
             width=340
         )
         self.download_button = ctk.CTkButton(master=self.options_frame, text="Download", command=self.on_download_clicked)
-
-        self.progress_label = ctk.CTkLabel(master=self.options_frame, text="Task")
-        self.progress_bar = ctk.CTkProgressBar(master=self.options_frame, orientation="horizontal", height=16)
-        self.progress_percent = ctk.CTkLabel(
-            master=self.progress_bar,
-            height=16,
-            text="Download progress:   0%",
-            bg_color="transparent",
-        )
-        self.progress_percent.place(in_=self.progress_bar, x=0, y=0)
+        self.task_progress_frame = PytTaskProgressFrame(master=self.options_frame)
 
         self.quality_label.grid(row=0, column=0, sticky=ctk.W, padx=(10, 10), pady=10)
         self.quality_opt_menu.grid(row=0, column=1, sticky=ctk.W, padx=(0, 10), pady=10)
@@ -121,9 +128,9 @@ class PytProgressiveFrame(PytMediaFrame):
 
     def on_download_clicked(self):
         self.download_button.configure(state="disabled")
-        self.progress_label.grid(row=2, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
-        self.progress_bar.grid(row=3, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
-        self.progress_bar.set(0)
+        self.task_progress_frame.progress_percent.configure(text="0%")
+        self.task_progress_frame.progress_label.configure(text="Download in progress")
+        self.task_progress_frame.show()
 
         self.yt_obj.register_on_progress_callback(self.on_download_in_progress)
         self.yt_obj.register_on_complete_callback(self.on_download_complete)
@@ -133,11 +140,12 @@ class PytProgressiveFrame(PytMediaFrame):
         total_size = stream.filesize
         bytes_downloaded = total_size - bytes_remaining
         percentage_completed = int((bytes_downloaded / total_size) * 100)
-        print(f'{percentage_completed}%')
-        self.progress_bar.set(float(percentage_completed / 100))
+        self.task_progress_frame.progress_bar.set(float(percentage_completed / 100))
+        self.task_progress_frame.progress_percent.configure(text=f'{percentage_completed}%')
 
     def on_download_complete(self, stream, file_path):
         self.download_button.configure(state="normal")
+        self.task_progress_frame.progress_label.configure(text='Download completed')
         print(file_path)
         print("Download succesfully completed c:")
 
