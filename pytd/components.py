@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import PhotoImage, Menu
 from pytube import YouTube
+from pytube.helpers import safe_filename
 from pytd.utils import is_yt_url, seconds_to_time_format, get_progressive_media_formatted, get_only_videos_formatted, get_only_audios_formatted, get_output_dir
 import requests
 from PIL import Image
@@ -97,8 +98,15 @@ class PytTaskProgressFrame(ctk.CTkFrame):
         self.progress_bar = ctk.CTkProgressBar(master=self, orientation="horizontal", height=16)
         self.progress_percent = ctk.CTkLabel(master=self)
 
-    def show(self):
+    def show_in_ui_pg(self):
         self.grid(row=2, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
+        self.progress_label.pack()
+        self.progress_bar.pack(fill=ctk.X, padx=10)
+        self.progress_percent.pack()
+        self.progress_bar.set(0)
+
+    def show_in_ui_ad(self):
+        self.grid(row=3, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
         self.progress_label.pack()
         self.progress_bar.pack(fill=ctk.X, padx=10)
         self.progress_percent.pack()
@@ -130,7 +138,7 @@ class PytProgressiveFrame(PytMediaFrame):
         self.download_button.configure(state="disabled")
         self.task_progress_frame.progress_percent.configure(text="0%")
         self.task_progress_frame.progress_label.configure(text="Download in progress")
-        self.task_progress_frame.show()
+        self.task_progress_frame.show_in_ui_pg()
 
         self.yt_obj.register_on_progress_callback(self.on_download_in_progress)
         self.yt_obj.register_on_complete_callback(self.on_download_complete)
@@ -154,27 +162,123 @@ class PytAdaptativeFrame(PytMediaFrame):
     def __init__(self, *args, **kwargs):
         PytMediaFrame.__init__(self, *args, **kwargs)
 
-        self.video_cb = ctk.CTkCheckBox(master=self.options_frame, text="Video")
+        self.video_cb = ctk.CTkCheckBox(master=self.options_frame, text="Video", command=self.on_video_check_clicked)
         self.video_op_menu = ctk.CTkOptionMenu(
             master=self.options_frame,
             values=get_only_videos_formatted(self.yt_obj),
-            width=300
+            width=300,
+            state='disabled'
         )
 
-        self.audio_cb = ctk.CTkCheckBox(master=self.options_frame, text="Audio")
+        self.audio_cb = ctk.CTkCheckBox(master=self.options_frame, text="Audio", command=self.on_audio_check_clicked)
         self.audio_op_menu = ctk.CTkOptionMenu(
             master=self.options_frame,
             values=get_only_audios_formatted(self.yt_obj),
-            width=300
+            width=300,
+            state='disabled'
         )
 
-        self.download_button = ctk.CTkButton(master=self.options_frame, text="Download & convert")
+        self.download_button = ctk.CTkButton(
+            master=self.options_frame,
+            text="Download & convert",
+            state='disabled',
+            command=self.on_download_clicked
+        )
+        self.task_progress_frame = PytTaskProgressFrame(master=self.options_frame)
 
         self.video_cb.grid(row=0, column=0, sticky=ctk.W, padx=(10, 10), pady=(10, 0))
         self.video_op_menu.grid(row=0, column=1, sticky=ctk.W, padx=(0, 10), pady=(10, 0))
         self.audio_cb.grid(row=1, column=0, sticky=ctk.W, padx=(10, 10), pady=(10, 0))
         self.audio_op_menu.grid(row=1, column=1, sticky=ctk.W, padx=(0, 10), pady=(10, 0))
         self.download_button.grid(row=2, columnspan=2, sticky=ctk.EW, padx=10, pady=(10, 0))
+
+    def on_video_check_clicked(self):
+        video_is_checked = bool(self.video_cb.get())
+
+        if video_is_checked:
+            self.video_op_menu.configure(state='normal')
+            self.download_button.configure(state='normal')
+        else:
+            self.video_op_menu.configure(state='disabled')
+            audio_is_checked = bool(self.audio_cb.get())
+            if not audio_is_checked:
+                self.download_button.configure(state='disabled')
+
+    def on_audio_check_clicked(self):
+        audio_is_checked = bool(self.audio_cb.get())
+
+        if audio_is_checked:
+            self.audio_op_menu.configure(state='normal')
+            self.download_button.configure(state='normal')
+        else:
+            self.audio_op_menu.configure(state='disabled')
+            video_is_checked = bool(self.video_cb.get())
+            if not video_is_checked:
+                self.download_button.configure(state='disabled')
+
+    def download_media(self) -> None:
+        to_dl_itags = []
+        video_is_checked = bool(self.video_cb.get())
+        audio_is_checked = bool(self.audio_cb.get())
+        vid_name = safe_filename(self.yt_obj.title)
+
+        if video_is_checked:
+            itag = int(self.video_op_menu.get()[:3])
+            to_dl_itags.append(itag)
+            if not audio_is_checked:
+                _, _subtype = self.yt_obj.streams.get_by_itag(itag).mime_type.split("/")
+                _filename = f'{vid_name}_videosolo.{_subtype}'
+                print(_subtype)
+                self.yt_obj.streams.get_by_itag(itag).download(
+                    output_path=get_output_dir(),
+                    filename=_filename
+                )
+        if audio_is_checked:
+            itag = int(self.audio_op_menu.get()[:3])
+            to_dl_itags.append(itag)
+            if not video_is_checked:
+                _, _subtype = self.yt_obj.streams.get_by_itag(itag).mime_type.split("/")
+                _filename = f'{vid_name}_audiosolo.{_subtype}'
+                print(_subtype)
+                self.yt_obj.streams.get_by_itag(itag).download(
+                    output_path=get_output_dir(),
+                    filename=_filename
+                )
+        if video_is_checked and audio_is_checked:
+            print(vid_name)
+            for itag in to_dl_itags:
+                _, _subtype = self.yt_obj.streams.get_by_itag(itag).mime_type.split("/")
+                _filename = f'{vid_name}_{itag}.{_subtype}'
+                print(_subtype)
+                self.yt_obj.streams.get_by_itag(itag).download(
+                    output_path=get_output_dir(),
+                    filename=_filename
+                )
+        else:
+            print('owo')
+
+    def on_download_clicked(self):
+        self.download_button.configure(state="disabled")
+        self.task_progress_frame.progress_percent.configure(text="0%")
+        self.task_progress_frame.progress_label.configure(text="Download in progress")
+        self.task_progress_frame.show_in_ui_ad()
+
+        self.yt_obj.register_on_progress_callback(self.on_download_in_progress)
+        self.yt_obj.register_on_complete_callback(self.on_download_complete)
+        Thread(target=self.download_media).start()
+
+    def on_download_in_progress(self, stream, chunk, bytes_remaining):
+        total_size = stream.filesize
+        bytes_downloaded = total_size - bytes_remaining
+        percentage_completed = int((bytes_downloaded / total_size) * 100)
+        self.task_progress_frame.progress_bar.set(float(percentage_completed / 100))
+        self.task_progress_frame.progress_percent.configure(text=f'{percentage_completed}%')
+
+    def on_download_complete(self, stream, file_path):
+        self.download_button.configure(state="normal")
+        self.task_progress_frame.progress_label.configure(text='Download completed')
+        print(file_path)
+        print("Download succesfully completed c:")
 
 
 class PytFetchFrame(ctk.CTkFrame):
@@ -197,7 +301,6 @@ class PytFetchFrame(ctk.CTkFrame):
 
         self.entry_context_menu = Menu(self.entry_url, tearoff=0)
         self.entry_context_menu.add_command(label="Clear & paste", command=self.clear_and_paste_clipboard)
-        # self.entry_context_menu.
 
         self.entry_url.bind("<Button-3>", lambda event: self.entry_context_menu.post(event.x_root, event.y_root))
 
